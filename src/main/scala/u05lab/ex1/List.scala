@@ -2,6 +2,8 @@ package u05lab.ex1
 
 import u05lab.ex1.List
 
+import scala.annotation.tailrec
+
 // Ex 1. implement the missing methods both with recursion or with using fold, map, flatMap, and filters
 // List as a pure interface
 enum List[A]:
@@ -59,16 +61,37 @@ enum List[A]:
   def reverse(): List[A] = foldLeft[List[A]](Nil())((l, e) => e :: l)
 
   /** EXERCISES */
-  def zipRight: List[(A, Int)] = ???
+  def zipRight: List[(A, Int)] =
+    foldRight(Nil())((e, l) => l match
+      case Nil() => (e, this.length - 1) :: l
+      case (_, idx) :: _ => (e, idx - 1) :: l
+    )
 
-  def partition(pred: A => Boolean): (List[A], List[A]) = ???
+  def partition(pred: A => Boolean): (List[A], List[A]) =
+    (filter(pred), filter(!pred(_)))
 
-  def span(pred: A => Boolean): (List[A], List[A]) = ???
+  def span(pred: A => Boolean): (List[A], List[A]) =
+    foldLeft((Nil(), Nil()))((a, v) => (a, v) match
+      case ((lsta, Nil()), e) if pred(e) => (lsta append e :: Nil(), Nil())
+      case ((lsta, lstb), e) => (lsta, lstb append e :: Nil())
+    )
 
   /** @throws UnsupportedOperationException if the list is empty */
-  def reduce(op: (A, A) => A): A = ???
+  def reduce(op: (A, A) => A): A = this match
+    case Nil() => throw new UnsupportedOperationException()
+    case h :: t => t.foldLeft(h)(op)
 
-  def takeRight(n: Int): List[A] = ???
+  def take(n: Int): List[A] = this match
+    case Nil() => Nil()
+    case _ :: _ if n == 0 => Nil()
+    case h :: t => h :: t take n-1
+
+  def takeRight(n: Int): List[A] =
+    this.reverse().take(n).reverse()
+
+  def collect[B](pf: PartialFunction[A, B]): List[B] =
+    filter(pf.isDefinedAt) map(pf.apply)
+
 
 // Factories
 object List:
@@ -81,14 +104,17 @@ object List:
   def of[A](elem: A, n: Int): List[A] =
     if n == 0 then Nil() else elem :: of(elem, n - 1)
 
+
 @main def checkBehaviour(): Unit =
   val reference = List(1, 2, 3, 4)
+  println(reference.foldRight(0)((e,n) => n + 1))
   println(reference.zipRight) // List((1, 0), (2, 1), (3, 2), (4, 3))
   println(reference.partition(_ % 2 == 0)) // (List(2, 4), List(1, 3))
   println(reference.span(_ % 2 != 0)) // (List(1), List(2, 3, 4))
   println(reference.span(_ < 3)) // (List(1, 2), List(3, 4))
   println(reference.reduce(_ + _)) // 10
-  try Nil.reduce[Int](_ + _)
-  catch case ex: Exception => println(ex) // prints exception
+   try Nil.reduce[Int](_ + _)
+   catch case ex: Exception => println(ex) // prints exception
   println(List(10).reduce(_ + _)) // 10
   println(reference.takeRight(3)) // List(2, 3, 4)
+  println(reference.collect({ case x if x % 2 == 0 =>  x + 1}))
